@@ -1,0 +1,72 @@
+name: CI
+
+# Runs on every push and PR. This validates the codebase compiles, lints
+# clean, and its unit tests pass. It deliberately does NOT deploy anything —
+# see DEPLOYMENT.md: Vercel and Render both deploy automatically from a
+# Git push via their own native integration, so a custom deploy workflow
+# here would just be a second, redundant deploy path to keep in sync.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run build --workspace=packages/shared-types
+      - run: npm run lint --workspaces --if-present
+      - run: npx tsc -p apps/api/tsconfig.json --noEmit
+      - run: npx tsc -p apps/web/tsconfig.json --noEmit
+
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run test --workspace=apps/api
+
+  test-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run test --workspace=apps/web
+
+  build-check:
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run build --workspace=packages/shared-types
+      - run: npm run build --workspace=apps/api
+      # Web build needs at least placeholder NEXT_PUBLIC_* values to
+      # compile — real values are injected at actual deploy time (see
+      # DEPLOYMENT.md); this job only proves the build itself succeeds.
+      - run: npm run build --workspace=apps/web
+        env:
+          NEXT_PUBLIC_API_URL: https://placeholder.example.com
+          NEXT_PUBLIC_FIREBASE_API_KEY: placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: placeholder.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: placeholder
+          NEXT_PUBLIC_FIREBASE_APP_ID: placeholder

@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pjherbal_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pjherbal
+      POSTGRES_PASSWORD: pjherbal_dev_password
+      POSTGRES_DB: pjherbal_clinic
+    ports:
+      - "5432:5432"
+    volumes:
+      - pjherbal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pjherbal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pjherbal_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    # Used for: rate limiting, session/cart cache, order-status pub/sub for WhatsApp automation
+
+volumes:
+  pjherbal_pgdata:
